@@ -26,7 +26,7 @@ from ..bases import (
     QuantityEvalMode, partial_hashable)
 from ..utils import (
     mean, matrix_to_rpy, matrix_to_quat, quat_apply, remove_yaw_from_quat,
-    quat_interpolate_middle)
+    quat_interpolate_middle, xyzquat_difference, xyzquat_integrate)
 
 from .transform import (
     StackedQuantity, MaskedQuantity, UnaryOpQuantity, BinaryOpQuantity)
@@ -215,7 +215,7 @@ class _BatchedFramesRotationMatrix(
         self.frame_names: Tuple[str, ...] = ()
 
         # Store all rotation matrices at once
-        self._rot_mat_batch: np.ndarray = np.array([])
+        self._rot_mat_batch = np.array([])
 
         # Define proxy for views of the batch storing all rotation matrices
         self._rot_mat_views: List[np.ndarray] = []
@@ -383,7 +383,7 @@ class _BatchedFramesOrientation(
             ] = ()
 
         # Store the representation of the orientation of all frames at once
-        self._data_batch: np.ndarray = np.array([])
+        self._data_batch = np.array([])
 
         # Mapping from chunks of frame names to vector representation views
         self._data_map: Dict[Union[str, Tuple[str, ...]], np.ndarray] = {}
@@ -640,7 +640,7 @@ class _BatchedFramesPosition(
         self._pos_refs: List[np.ndarray] = []
 
         # Store the position of all frames at once
-        self._pos_batch: np.ndarray = np.array([])
+        self._pos_batch = np.array([])
 
         # Define proxy for views of the batch storing all translation vectors
         self._pos_views: List[np.ndarray] = []
@@ -1205,10 +1205,10 @@ class MultiFrameCollisionDetection(InterfaceQuantity[bool]):
 
 
 @dataclass(unsafe_hash=True)
-class _DifferenceFrameXYZQuat(InterfaceQuantity[np.ndarray]):
+class _DifferenceMultiFrameXYZQuat(InterfaceQuantity[np.ndarray]):
     """Motion vector representation (VX, VY, VZ, WX, WY, WZ) of the finite
-    difference between the pose of a given frame at the end of previous and
-    current agent steps.
+    difference between the pose of a given set of frames at the end of previous
+    and current agent steps.
 
     The finite difference is defined here as the geodesic distance in SE3 Lie
     Group. Under this definition, the rate of change of the translation depends
@@ -1217,8 +1217,8 @@ class _DifferenceFrameXYZQuat(InterfaceQuantity[np.ndarray]):
     instead to completely decouple the position from the orientation.
     """
 
-    frame_name: str
-    """Name of the frame on which to operate.
+    frame_names: Tuple[str, ...]
+    """Name of the frames on which to operate.
     """
 
     mode: QuantityEvalMode
@@ -1233,14 +1233,14 @@ class _DifferenceFrameXYZQuat(InterfaceQuantity[np.ndarray]):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  parent: Optional[InterfaceQuantity],
-                 frame_name: str,
+                 frame_names: Tuple[str, ...],
                  *,
                  mode: QuantityEvalMode = QuantityEvalMode.TRUE) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param parent: Higher-level quantity from which this quantity is a
                        requirement if any, `None` otherwise.
-        :param frame_name: Name of the frame on which to operate.
+        :param frame_names: Name of the frames on which to operate.
         :param reference_frame:
             Whether the spatial velocity must be computed in local reference
             frame (aka 'pin.LOCAL') or re-aligned with world axes (aka
@@ -1250,7 +1250,7 @@ class _DifferenceFrameXYZQuat(InterfaceQuantity[np.ndarray]):
                      Optional: 'QuantityEvalMode.TRUE' by default.
         """
         # Backup some user argument(s)
-        self.frame_name = frame_name
+        self.frame_names = tuple(frame_names)
         self.mode = mode
 
         # Call base implementation
@@ -1259,21 +1259,19 @@ class _DifferenceFrameXYZQuat(InterfaceQuantity[np.ndarray]):
             parent,
             requirements=dict(
                 xyzquat_stack=(StackedQuantity, dict(
-                    quantity=(FrameXYZQuat, dict(
-                        frame_name=frame_name,
-                        mode=mode)),
+                    quantity=(MultiFrameXYZQuat, dict(
+                        frame_names=self.frame_names,
+                        mode=self.mode)),
                     max_stack=2))),
             auto_refresh=False)
 
-        # Define specialize difference operator on SE3 Lie group
-        self._difference = (
-            pin.liegroups.SE3().difference)  # pylint: disable=no-member
-
-        # Pre-allocate memory to store the pose difference
-        self._data: np.ndarray = np.zeros(6)
+        # Pre-allocate memory to store the pose difference.
+        # Note that 'C' order is used to preserve memory contiguity when
+        # extracting individual components.
+        self._data = np.zeros((6, len(self.frame_names)), order='C')
 
     def refresh(self) -> np.ndarray:
-        # Fetch previous and current XYZQuat representation of frame transform.
+        # Get previous and current XYZQuat representation of frame transforms.
         # It will raise an exception if not enough data is available at this
         # point. This should never occur in practice as it will be fine at
         # the end of the first step already, before the reward and termination
@@ -1281,15 +1279,15 @@ class _DifferenceFrameXYZQuat(InterfaceQuantity[np.ndarray]):
         xyzquat_prev, xyzquat = self.xyzquat_stack.get()
 
         # Compute average frame velocity in local frame since previous step
-        self._data[:] = self._difference(xyzquat_prev, xyzquat)
+        xyzquat_difference(xyzquat_prev, xyzquat, self._data)
 
         return self._data
 
 
 @dataclass(unsafe_hash=True)
-class AverageFrameXYZQuat(InterfaceQuantity[np.ndarray]):
+class MultiAverageFrameXYZQuat(InterfaceQuantity[np.ndarray]):
     """Spatial vector representation (X, Y, Z, QuatX, QuatY, QuatZ, QuatW) of
-    the midpoint pose of a given frame over the whole agent step.
+    the midpoint pose of a given set of frames over the whole agent step.
 
     The midpoint frame pose is obtained by integration of the average velocity
     over the whole agent step, backward in time from the state at the end of
@@ -1306,8 +1304,8 @@ class AverageFrameXYZQuat(InterfaceQuantity[np.ndarray]):
         does not correspond to the actual shortest path anymore.
     """
 
-    frame_name: str
-    """Name of the frame on which to operate.
+    frame_names: Tuple[str, ...]
+    """Name of the frames on which to operate.
     """
 
     mode: QuantityEvalMode
@@ -1322,19 +1320,19 @@ class AverageFrameXYZQuat(InterfaceQuantity[np.ndarray]):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  parent: Optional[InterfaceQuantity],
-                 frame_name: str,
+                 frame_names: Tuple[str, ...],
                  *,
                  mode: QuantityEvalMode = QuantityEvalMode.TRUE) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param parent: Higher-level quantity from which this quantity is a
                        requirement if any, `None` otherwise.
-        :param frame_name: Name of the frame on which to operate.
+        :param frame_names: Name of the frames on which to operate.
         :param mode: Desired mode of evaluation for this quantity.
                      Optional: 'QuantityEvalMode.TRUE' by default.
         """
         # Backup some user argument(s)
-        self.frame_name = frame_name
+        self.frame_names = tuple(frame_names)
         self.mode = mode
 
         # Call base implementation
@@ -1342,22 +1340,26 @@ class AverageFrameXYZQuat(InterfaceQuantity[np.ndarray]):
             env,
             parent,
             requirements=dict(
-                xyzquat_next=(FrameXYZQuat, dict(
-                    frame_name=frame_name,
-                    mode=mode)),
-                xyzquat_diff=(_DifferenceFrameXYZQuat, dict(
-                    frame_name=frame_name,
-                    mode=mode))),
+                xyzquat_next=(MultiFrameXYZQuat, dict(
+                    frame_names=self.frame_names,
+                    mode=self.mode)),
+                xyzquat_diff=(_DifferenceMultiFrameXYZQuat, dict(
+                    frame_names=self.frame_names,
+                    mode=self.mode))),
             auto_refresh=False)
 
-        # Define specialize integrate operator on SE3 Lie group
-        self._integrate = (
-            pin.liegroups.SE3().integrate)  # pylint: disable=no-member
+        # Pre-allocate memory to store the integrated pose.
+        # Note that 'C' order is used to preserve memory contiguity when
+        # extracting individual components.
+        self._data = np.zeros((7, len(self.frame_names)), order='F')
 
     def refresh(self) -> np.ndarray:
         # Interpolate the average spatial velocity at midpoint
-        return self._integrate(
-            self.xyzquat_next.get(), - 0.5 * self.xyzquat_diff.get())
+        xyzquat_integrate(self.xyzquat_next.get(),
+                          - 0.5 * self.xyzquat_diff.get(),
+                          self._data)
+
+        return self._data
 
 
 @dataclass(unsafe_hash=True)
@@ -1366,9 +1368,9 @@ class AverageFrameRollPitch(InterfaceQuantity[np.ndarray]):
     Roll-Pitch-Yaw decomposition of a given frame over the whole agent step.
 
     .. seealso::
-        See `remove_yaw_from_quat` and `AverageFrameXYZQuat` for details about
-        the Roll-Pitch-Yaw decomposition and how the average frame pose is
-        defined respectively.
+        See `remove_yaw_from_quat` and `MultiAverageFrameXYZQuat` for details
+        about the Roll-Pitch-Yaw decomposition and how the average frame pose
+        is defined respectively.
     """
 
     frame_name: str
@@ -1407,27 +1409,28 @@ class AverageFrameRollPitch(InterfaceQuantity[np.ndarray]):
             env,
             parent,
             requirements=dict(
-                quat_mean=(MaskedQuantity, dict(
-                    quantity=(AverageFrameXYZQuat, dict(
-                        frame_name=frame_name,
-                        mode=mode)),
-                    axis=0,
-                    keys=(3, 4, 5, 6)))),
+                xyzquat_mean=(MultiAverageFrameXYZQuat, dict(
+                    frame_names=(frame_name,),
+                    mode=mode))),
             auto_refresh=False)
 
         # Twist-free average orientation of the base as a quaternion
         self._quat_no_yaw_mean = np.zeros((4,))
 
     def refresh(self) -> np.ndarray:
+        # Get the XYZQuat representation of mean frame pose
+        xyzquat_mean = self.xyzquat_mean.get()
+
         # Compute Yaw-free average orientation
-        remove_yaw_from_quat(self.quat_mean.get(), self._quat_no_yaw_mean)
+        remove_yaw_from_quat(xyzquat_mean[-4:, 0], self._quat_no_yaw_mean)
 
         return self._quat_no_yaw_mean
 
 
 @dataclass(unsafe_hash=True)
-class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
-    """Average spatial velocity of a given frame at the end of the agent step.
+class MultiFrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
+    """Average spatial velocity of a given set of frames at the end of the
+    agent step.
 
     The average spatial velocity is obtained by finite difference. More
     precisely, it is defined here as the ratio of the geodesic distance in SE3
@@ -1446,8 +1449,8 @@ class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
         pose) would be equally valid.
     """
 
-    frame_name: str
-    """Name of the frame on which to operate.
+    frame_names: Tuple[str, ...]
+    """Name of the frames on which to operate.
     """
 
     reference_frame: pin.ReferenceFrame
@@ -1467,7 +1470,7 @@ class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  parent: Optional[InterfaceQuantity],
-                 frame_name: str,
+                 frame_names: Tuple[str, ...],
                  *,
                  reference_frame: pin.ReferenceFrame = pin.LOCAL,
                  mode: QuantityEvalMode = QuantityEvalMode.TRUE) -> None:
@@ -1475,7 +1478,7 @@ class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
         :param env: Base or wrapped jiminy environment.
         :param parent: Higher-level quantity from which this quantity is a
                        requirement if any, `None` otherwise.
-        :param frame_name: Name of the frame on which to operate.
+        :param frame_names: Name of the frames on which to operate.
         :param reference_frame:
             Whether the spatial velocity must be computed in local reference
             frame (aka 'pin.LOCAL') or re-aligned with world axes (aka
@@ -1490,7 +1493,7 @@ class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
                              "'pin.LOCAL_WORLD_ALIGNED'.")
 
         # Backup some user argument(s)
-        self.frame_name = frame_name
+        self.frame_names = tuple(frame_names)
         self.reference_frame = reference_frame
         self.mode = mode
 
@@ -1499,13 +1502,13 @@ class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
             env,
             parent,
             requirements=dict(
-                xyzquat_diff=(_DifferenceFrameXYZQuat, dict(
-                    frame_name=frame_name,
-                    mode=mode)),
+                xyzquat_diff=(_DifferenceMultiFrameXYZQuat, dict(
+                    frame_names=self.frame_names,
+                    mode=self.mode)),
                 quat_mean=(MaskedQuantity, dict(
-                    quantity=(AverageFrameXYZQuat, dict(
-                        frame_name=frame_name,
-                        mode=mode)),
+                    quantity=(MultiAverageFrameXYZQuat, dict(
+                        frame_names=self.frame_names,
+                        mode=self.mode)),
                     axis=0,
                     keys=(3, 4, 5, 6)))),
             auto_refresh=False)
@@ -1514,10 +1517,10 @@ class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
         self._inv_step_dt = 1.0 / self.env.step_dt
 
         # Pre-allocate memory for the spatial velocity
-        self._v_spatial: np.ndarray = np.zeros(6)
+        self._v_spatial = np.zeros((6, len(self.frame_names)), order='C')
 
         # Reshape linear plus angular velocity vector to vectorize rotation
-        self._v_lin_ang = self._v_spatial.reshape((2, 3)).T
+        self._v_lin_ang = self._v_spatial.reshape((2, 3, -1)).swapaxes(0, 1)
 
     def refresh(self) -> np.ndarray:
         # Compute average frame velocity in local frame since previous step
@@ -1529,7 +1532,9 @@ class FrameSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
             # Define world frame as the "middle" between prev and next pose.
             # Here, we only care about the middle rotation, so we can consider
             # SO3 Lie Group algebra instead of SE3.
-            quat_apply(self.quat_mean.get(), self._v_lin_ang, self._v_lin_ang)
+            quat_apply(self.quat_mean.get(),
+                       self._v_lin_ang,
+                       out=self._v_lin_ang)
 
         return self._v_spatial
 

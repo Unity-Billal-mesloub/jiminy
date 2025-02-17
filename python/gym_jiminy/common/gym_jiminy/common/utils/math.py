@@ -864,12 +864,14 @@ def log6(xyzquat: np.ndarray,
 
     # Split linear and angular parts for input and output representations
     v_lin, v_ang = out_[:3], out_[3:]
-    pos, quat = xyzquat[:3], xyzquat[3:]
+    pos_x, pos_y, pos_z = xyzquat[:3]
+    quat = xyzquat[3:]
     qvec, qw = quat[:-1], quat[-1]
 
     # Compute the angular part
     theta = np.empty(xyzquat.shape[1:])
     log3(quat, v_ang, theta)
+    v_ang_x, v_ang_y, v_ang_z = v_ang
 
     # Compute the linear part.
     # FIXME: Taylor expansion should be used to handle theta ~ 0.
@@ -879,15 +881,15 @@ def log6(xyzquat: np.ndarray,
     theta_cot_2 = theta_cos_2 / theta_sin_2
     np.maximum(theta, eps, theta)
     beta = 1.0 / np.square(theta) - 0.5 * theta_cot_2 / theta
-    wxv_x = v_ang[1] * pos[2] - v_ang[2] * pos[1]
-    wxv_y = v_ang[2] * pos[0] - v_ang[0] * pos[2]
-    wxv_z = v_ang[0] * pos[1] - v_ang[1] * pos[0]
-    w2xv_x = v_ang[1] * wxv_z - v_ang[2] * wxv_y
-    w2xv_y = v_ang[2] * wxv_x - v_ang[0] * wxv_z
-    w2xv_z = v_ang[0] * wxv_y - v_ang[1] * wxv_x
-    v_lin[0] = pos[0] - 0.5 * wxv_x + beta * w2xv_x
-    v_lin[1] = pos[1] - 0.5 * wxv_y + beta * w2xv_y
-    v_lin[2] = pos[2] - 0.5 * wxv_z + beta * w2xv_z
+    wxv_x = v_ang_y * pos_z - v_ang_z * pos_y
+    wxv_y = v_ang_z * pos_x - v_ang_x * pos_z
+    wxv_z = v_ang_x * pos_y - v_ang_y * pos_x
+    w2xv_x = v_ang_y * wxv_z - v_ang_z * wxv_y
+    w2xv_y = v_ang_z * wxv_x - v_ang_x * wxv_z
+    w2xv_z = v_ang_x * wxv_y - v_ang_y * wxv_x
+    v_lin[0] = pos_x - 0.5 * wxv_x + beta * w2xv_x
+    v_lin[1] = pos_y - 0.5 * wxv_y + beta * w2xv_y
+    v_lin[2] = pos_z - 0.5 * wxv_z + beta * w2xv_z
 
     if out is None:
         return out_
@@ -926,7 +928,9 @@ def exp6(v_spatial: np.ndarray,
         out_ = out
 
     # Split linear and angular velocity for convenience
-    v_lin, v_ang = v_spatial[:3], v_spatial[3:]
+    v_lin_x, v_lin_y, v_lin_z = v_spatial[:3]
+    v_ang = v_spatial[3:]
+    v_ang_x, v_ang_y, v_ang_z = v_ang
 
     # Compute the linear part.
     # FIXME: Taylor expansion should be used to handle theta ~ 0.
@@ -936,15 +940,15 @@ def exp6(v_spatial: np.ndarray,
     theta_cos, theta_sin = np.cos(theta), np.sin(theta)
     alpha_wxv = (1.0 - theta_cos) / theta_sq
     alpha_w2 = (theta - theta_sin) / theta_sq / theta
-    wxv_x = v_ang[1] * v_lin[2] - v_ang[2] * v_lin[1]
-    wxv_y = v_ang[2] * v_lin[0] - v_ang[0] * v_lin[2]
-    wxv_z = v_ang[0] * v_lin[1] - v_ang[1] * v_lin[0]
-    w2xv_x = v_ang[1] * wxv_z - v_ang[2] * wxv_y
-    w2xv_y = v_ang[2] * wxv_x - v_ang[0] * wxv_z
-    w2xv_z = v_ang[0] * wxv_y - v_ang[1] * wxv_x
-    out_[0] = v_lin[0] + alpha_wxv * wxv_x + alpha_w2 * w2xv_x
-    out_[1] = v_lin[1] + alpha_wxv * wxv_y + alpha_w2 * w2xv_y
-    out_[2] = v_lin[2] + alpha_wxv * wxv_z + alpha_w2 * w2xv_z
+    wxv_x = v_ang_y * v_lin_z - v_ang_z * v_lin_y
+    wxv_y = v_ang_z * v_lin_x - v_ang_x * v_lin_z
+    wxv_z = v_ang_x * v_lin_y - v_ang_y * v_lin_x
+    w2xv_x = v_ang_y * wxv_z - v_ang_z * wxv_y
+    w2xv_y = v_ang_z * wxv_x - v_ang_x * wxv_z
+    w2xv_z = v_ang_x * wxv_y - v_ang_y * wxv_x
+    out_[0] = v_lin_x + alpha_wxv * wxv_x + alpha_w2 * w2xv_x
+    out_[1] = v_lin_y + alpha_wxv * wxv_y + alpha_w2 * w2xv_y
+    out_[2] = v_lin_z + alpha_wxv * wxv_z + alpha_w2 * w2xv_z
 
     # Compute the angular part
     exp3(v_ang, out_[-4:])
@@ -1035,11 +1039,67 @@ def xyzquat_difference(xyzquat_left: np.ndarray,
     xyz_left, quat_left = xyzquat_left[:3], xyzquat_left[-4:]
     xyz_right, quat_right = xyzquat_right[:3], xyzquat_right[-4:]
     xyz_diff[:] = xyz_right - xyz_left
-    quat_apply(quat_left, xyz_diff, xyz_diff, is_conjugate=True)
-    quat_multiply(quat_left, quat_right, quat_diff, is_left_conjugate=True)
+    quat_apply(quat_left, xyz_diff, out=xyz_diff, is_conjugate=True)
+    quat_multiply(quat_left, quat_right, out=quat_diff, is_left_conjugate=True)
 
     # Apply inverse exponential map to cast the residual pose in tangent space
     return log6(xyzquat_diff, out)
+
+
+@nb.jit(nopython=True, cache=True)
+def xyzquat_integrate(xyzquat: np.ndarray,
+                      v_spatial: np.ndarray,
+                      out: Optional[np.ndarray] = None
+                      ) -> Optional[np.ndarray]:
+    """Compute the pair-wise SE3 integration of a batch of transform vectors
+    (x, y, z, qx, qy, qz, qz) by a batch of spatial velocity vectors
+    (vx, vy, vz, wx, wy, wz) over a unit timestep.
+
+    .. note::
+        The user is expected to manually scale the spatial velocity by the
+        actual timestep of integration if necessary.
+
+    :param xyzquat: N-dimensional array whose first dimension gathers the 7
+                    position and quaternion coordinates (x, y, z),
+                    (qx, qy, qz, qw) respectively.
+    :param v_spatial: N-dimensional array whose first dimension gathers the 6
+                      linear and angular velocity components (vx, vy, vz),
+                      (wx, wy, wz) respectively.
+    :param out: Pre-allocated array into which to store the result. If not
+                provided, a new array is freshly-allocated and returned, which
+                is slower.
+    """
+    # Allocate memory if necessary
+    assert xyzquat.ndim >= 1
+    if out is None:
+        out_ = np.empty((7, *xyzquat.shape[1:]))
+    else:
+        assert out.shape == (7, *xyzquat.shape[1:])
+        out_ = out
+
+    # Split linear and angular parts for convenience
+    xyz_prev, quat_prev = xyzquat[:3], xyzquat[-4:]
+    xyz_next, quat_next = out_[:3], out_[-4:]
+
+    # Apply exponential map to cast the velocity in residual transform.
+    # Note that the output is used as buffer to avoid extra memory allocation.
+    exp6(v_spatial, out_)
+    xyz_diff, quat_diff = out_[:3], out_[3:]
+
+    # Compose the original transform with the residual one
+    quat_apply(quat_prev, xyz_diff, out=xyz_next)
+    xyz_next += xyz_prev
+    quat_multiply(quat_prev, quat_diff, out=quat_next)
+
+    # Preserve the original "sign" of the quaternion
+    quat_next *= np.sign(np.sum(quat_next * quat_prev, 0))
+
+    # First order quaternion normalization to prevent numerical instabilities
+    quat_next *= (3.0 - np.sum(np.square(quat_next), 0)) / 2
+
+    if out is None:
+        return out_
+    return None
 
 
 @nb.jit(nopython=True, cache=True)
