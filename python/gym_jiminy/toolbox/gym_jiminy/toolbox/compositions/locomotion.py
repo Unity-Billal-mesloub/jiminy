@@ -5,7 +5,7 @@ from functools import partial
 
 import numba as nb
 
-from gym_jiminy.common.compositions import CUTOFF_ESP
+from gym_jiminy.common.compositions.mixin import CUTOFF_ESP
 from gym_jiminy.common.bases import (
     InterfaceJiminyEnv, QuantityEvalMode, QuantityReward)
 

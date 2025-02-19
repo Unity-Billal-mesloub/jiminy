@@ -366,7 +366,7 @@ class Quantities(unittest.TestCase):
                 lambda mode: (MultiFootMeanOdometryPose, dict(
                     mode=mode)),
                 lambda mode: (MultiFrameSpatialAverageVelocity, dict(
-                    frame_name=(frame_names[1],),
+                    frame_names=(frame_names[1],),
                     mode=mode)),
                 lambda mode: (BaseOdometryAverageVelocity, dict(
                     mode=mode)),

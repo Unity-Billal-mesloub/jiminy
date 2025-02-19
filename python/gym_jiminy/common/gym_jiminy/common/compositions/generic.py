@@ -21,7 +21,7 @@ from ..quantities import (
     MultiActuatedJointKinematic, MechanicalPowerConsumption,
     AverageMechanicalPowerConsumption)
 
-from .mixin import radial_basis_function
+from .mixin import KernelShape, radial_basis_function
 
 
 ValueT = TypeVar('ValueT')
@@ -69,9 +69,9 @@ class TrackingQuantityReward(QuantityReward):
     otherwise an exception will be risen. See `DatasetTrajectoryQuantity` and
     `AbstractQuantity` documentations for details.
 
-    The error is transformed in a normalized reward to maximize by applying RBF
-    kernel on the error. The reward will be 0.0 if the error cancels out
-    completely and less than 'CUTOFF_ESP' above the user-specified cutoff
+    The error is transformed in a normalized reward to maximize by applying a
+    given RBF kernel on the error. The reward will be 0.0 if the error cancels
+    out completely and less than 'CUTOFF_ESP' above the user-specified cutoff
     threshold.
     """
     def __init__(self,
@@ -80,6 +80,7 @@ class TrackingQuantityReward(QuantityReward):
                  quantity_creator: Callable[
                     [QuantityEvalMode], QuantityCreator[ValueT]],
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
                  *,
                  op: Callable[[ValueT, ValueT], ValueT] = sub,
                  order: int = 2) -> None:
@@ -97,6 +98,8 @@ class TrackingQuantityReward(QuantityReward):
                                  keyword-arguments of its constructor except
                                  'env' and 'parent'.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param op: Any callable taking the true and reference values of the
                    quantity as input argument and returning the difference
                    between them, considering the algebra defined by their Lie
@@ -106,10 +109,6 @@ class TrackingQuantityReward(QuantityReward):
         :param order: Order of L^p-norm that will be used as distance metric.
                       Optional: 2 by default.
         """
-        # Backup some user argument(s)
-        self.cutoff = cutoff
-
-        # Call base implementation
         super().__init__(
             env,
             name,
@@ -117,7 +116,10 @@ class TrackingQuantityReward(QuantityReward):
                 quantity_left=quantity_creator(QuantityEvalMode.TRUE),
                 quantity_right=quantity_creator(QuantityEvalMode.REFERENCE),
                 op=op)),
-            partial(radial_basis_function, cutoff=self.cutoff, order=order),
+            partial(radial_basis_function, **dict(
+                cutoff=cutoff,
+                shape=int(shape),
+                order=order)),
             is_normalized=True,
             is_terminal=False)
 
@@ -131,15 +133,14 @@ class TrackingActuatedJointPositionsReward(TrackingQuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
-        # Backup some user argument(s)
-        self.cutoff = cutoff
-
-        # Call base implementation
         super().__init__(
             env,
             "reward_actuated_joint_positions",
@@ -147,7 +148,8 @@ class TrackingActuatedJointPositionsReward(TrackingQuantityReward):
                 kinematic_level=pin.KinematicLevel.POSITION,
                 is_motor_side=False,
                 mode=mode)),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class MinimizeMechanicalPowerConsumption(QuantityReward):
@@ -162,6 +164,7 @@ class MinimizeMechanicalPowerConsumption(QuantityReward):
             self,
             env: InterfaceJiminyEnv,
             cutoff: float,
+            shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
             *,
             horizon: float,
             generator_mode: EnergyGenerationMode = EnergyGenerationMode.CHARGE
@@ -169,6 +172,8 @@ class MinimizeMechanicalPowerConsumption(QuantityReward):
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param horizon: Horizon over which values of the quantity will be
                         stacked before computing the average.
         :param generator_mode: Specify what happens to the energy generated by
@@ -176,17 +181,16 @@ class MinimizeMechanicalPowerConsumption(QuantityReward):
                                Optional: `EnergyGenerationMode.CHARGE` by
                                default.
         """
-        # Backup some user argument(s)
-        self.cutoff = cutoff
-
-        # Call base implementation
         super().__init__(
             env,
             "reward_power_consumption",
             (AverageMechanicalPowerConsumption, dict(
                 horizon=horizon,
                 generator_mode=generator_mode)),
-            partial(radial_basis_function, cutoff=self.cutoff, order=2),
+            partial(radial_basis_function, **dict(
+                cutoff=cutoff,
+                shape=int(shape),
+                order=2)),
             is_normalized=True,
             is_terminal=False)
 
@@ -632,21 +636,16 @@ class MechanicalPowerConsumptionTermination(QuantityTermination):
                               evaluation mode.
                               Optional: False by default.
         """
-        # Backup user argument(s)
-        self.max_power = max_power
-        self.horizon = horizon
-        self.generator_mode = generator_mode
-
         # Pick the right quantity creator depending on the horizon
         quantity_creator: QuantityCreator
         if horizon is None:
             quantity_creator = (MechanicalPowerConsumption, dict(
-                generator_mode=self.generator_mode,
+                generator_mode=generator_mode,
                 mode=QuantityEvalMode.TRUE))
         else:
             quantity_creator = (AverageMechanicalPowerConsumption, dict(
-                horizon=self.horizon,
-                generator_mode=self.generator_mode,
+                horizon=horizon,
+                generator_mode=generator_mode,
                 mode=QuantityEvalMode.TRUE))
 
         # Call base implementation
@@ -655,7 +654,7 @@ class MechanicalPowerConsumptionTermination(QuantityTermination):
             "termination_power_consumption",
             quantity_creator,
             None,
-            self.max_power,
+            max_power,
             grace_period,
             is_truncation=False,
             training_only=training_only)
@@ -701,7 +700,6 @@ class ShiftTrackingMotorPositionsTermination(ShiftTrackingQuantityTermination):
                               evaluation mode.
                               Optional: False by default.
         """
-        # Call base implementation
         super().__init__(
             env,
             "termination_tracking_motor_positions",

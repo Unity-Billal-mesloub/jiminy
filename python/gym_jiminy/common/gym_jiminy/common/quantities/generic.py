@@ -1740,6 +1740,9 @@ def compute_power(generator_mode: int,  # EnergyGenerationMode
                           array. The order must be consistent with the motor
                           indices.
     """
+    # Passing IntEnum is explicitly forbidden as it is extremely slow in Numba
+    assert isinstance(generator_mode, int)
+
     if generator_mode in (_CHARGE, _LOST_GLOBAL):
         total_power = np.dot(motor_velocities, motor_efforts)
         if generator_mode == _CHARGE:

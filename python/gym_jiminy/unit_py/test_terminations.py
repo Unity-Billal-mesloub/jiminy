@@ -10,6 +10,7 @@ import numpy as np
 import gymnasium as gym
 from jiminy_py.log import extract_trajectory_from_log
 
+from gym_jiminy.common.bases import InterfaceJiminyEnv
 from gym_jiminy.common.utils import (
     quat_difference, matrix_to_quat, matrix_to_rpy)
 from gym_jiminy.common.bases import EpisodeState, ComposedJiminyEnv
@@ -36,7 +37,9 @@ class TerminationConditions(unittest.TestCase):
     """ TODO: Write documentation
     """
     def setUp(self):
-        self.env = gym.make("gym_jiminy.envs:atlas-pid", debug=False)
+        env = gym.make("gym_jiminy.envs:atlas-pid", debug=False)
+        assert isinstance(env, InterfaceJiminyEnv)
+        self.env = env
 
         self.env.eval()
         self.env.reset(seed=1)
@@ -201,7 +204,7 @@ class TerminationConditions(unittest.TestCase):
                     values = values[-max_stack:]
                     stack = np.stack(values, axis=-1)
                     if termination.data.quantity_left.is_wrapping:
-                        shift = max(self.env.num_steps + 1 - max_stack, 0)
+                        shift = max(int(self.env.num_steps) + 1 - max_stack, 0)
                         stack = np.roll(stack, shift=shift, axis=-1)
                     np.testing.assert_allclose(stack, left)
 

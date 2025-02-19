@@ -28,7 +28,7 @@ from .generic import (
     TrackingQuantityReward, QuantityTermination,
     DriftTrackingQuantityTermination, ShiftTrackingQuantityTermination)
 from ..quantities.locomotion import angle_difference
-from .mixin import radial_basis_function
+from .mixin import KernelShape, radial_basis_function
 
 
 class TrackingBaseHeightReward(TrackingQuantityReward):
@@ -40,16 +40,20 @@ class TrackingBaseHeightReward(TrackingQuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         super().__init__(
             env,
             "reward_tracking_base_height",
             lambda mode: (BaseRelativeHeight, dict(mode=mode)),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class TrackingBaseOdometryVelocityReward(TrackingQuantityReward):
@@ -61,16 +65,20 @@ class TrackingBaseOdometryVelocityReward(TrackingQuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         super().__init__(
             env,
             "reward_tracking_odometry_velocity",
             lambda mode: (BaseOdometryAverageVelocity, dict(mode=mode)),
-            cutoff)
+            cutoff,
+            shape)
 
 
 @nb.jit(nopython=True, cache=True, fastmath=True, inline='always')
@@ -80,7 +88,8 @@ def l2_norm(vec: np.ndarray) -> np.ndarray:
     :param array: Input array.
     """
     assert vec.ndim == 1
-    return np.sqrt(np.sum(np.square(vec)))
+    # Note that `np.dot(x, x)` is faster than `np.sum(np.square(x))`
+    return np.sqrt(np.dot(vec, vec))
 
 
 class DriftTrackingBaseOdometryPoseReward(TrackingQuantityReward):
@@ -94,10 +103,14 @@ class DriftTrackingBaseOdometryPoseReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
+                 *,
                  horizon: float) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param horizon: Horizon over which values of the quantity will be
                         stacked before computing the drift.
         """
@@ -118,7 +131,8 @@ class DriftTrackingBaseOdometryPoseReward(TrackingQuantityReward):
                     (DeltaBaseOdometryOrientation, dict(
                         horizon=horizon,
                         mode=mode))))),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class TrackingCapturePointReward(TrackingQuantityReward):
@@ -130,10 +144,13 @@ class TrackingCapturePointReward(TrackingQuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         super().__init__(
             env,
@@ -154,12 +171,15 @@ class TrackingFootPositionsReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
                  *,
                  frame_names: Union[Sequence[str], Literal['auto']] = 'auto'
                  ) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param frame_names: Name of the frames corresponding to the feet of the
                             robot. 'auto' to automatically detect them from the
                             set of contact and force sensors of the robot.
@@ -174,7 +194,8 @@ class TrackingFootPositionsReward(TrackingQuantityReward):
                     mode=mode)),
                 axis=0,
                 keys=(0, 1, 2))),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class TrackingFootOrientationsReward(TrackingQuantityReward):
@@ -190,12 +211,15 @@ class TrackingFootOrientationsReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
                  *,
                  frame_names: Union[Sequence[str], Literal['auto']] = 'auto'
                  ) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param frame_names: Name of the frames corresponding to the feet of the
                             robot. 'auto' to automatically detect them from the
                             set of contact and force sensors of the robot.
@@ -211,6 +235,7 @@ class TrackingFootOrientationsReward(TrackingQuantityReward):
                 axis=0,
                 keys=(3, 4, 5, 6))),
             cutoff,
+            shape,
             op=cast(Callable[
                 [np.ndarray, np.ndarray], np.ndarray], quat_difference))
 
@@ -235,12 +260,15 @@ class TrackingFootForceDistributionReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
                  *,
                  frame_names: Union[Sequence[str], Literal['auto']] = 'auto'
                  ) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param frame_names: Name of the frames corresponding to the feet of the
                             robot. 'auto' to automatically detect them from the
                             set of contact and force sensors of the robot.
@@ -252,22 +280,27 @@ class TrackingFootForceDistributionReward(TrackingQuantityReward):
             lambda mode: (MultiFootNormalizedForceVertical, dict(
                 frame_names=frame_names,
                 mode=mode)),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class MinimizeAngularMomentumReward(QuantityReward):
     """Reward the agent for minimizing the angular momentum in world plane.
 
     The angular momentum along x- and y-axes in local odometry frame is
-    transform in a normalized reward to maximize by applying RBF kernel on the
-    error. See `TrackingQuantityReward` documentation for technical details.
+    transformed in a normalized reward to maximize by applying a given RBF
+    kernel on the error. See `TrackingQuantityReward` documentation for
+    technical details.
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         # Backup some user argument(s)
         self.cutoff = cutoff
@@ -277,7 +310,10 @@ class MinimizeAngularMomentumReward(QuantityReward):
             env,
             "reward_momentum",
             (AverageBaseMomentum, dict(mode=QuantityEvalMode.TRUE)),
-            partial(radial_basis_function, cutoff=self.cutoff, order=2),
+            partial(radial_basis_function, **dict(
+                cutoff=self.cutoff,
+                shape=int(shape),
+                order=2)),
             is_normalized=True,
             is_terminal=False)
 
@@ -287,7 +323,7 @@ class MinimizeFrictionReward(QuantityReward):
     points and collision bodies, and to avoid jerky intermittent contact state.
 
     The L^2-norm is used to aggregate all the local tangential forces. While
-    the L^1-norm would be more natural in this specific cases, using the L-2
+    the L^1-norm would be more natural in this specific cases, using the L^2-
     norm is preferable as it promotes space-time regularity, ie balancing the
     force distribution evenly between all the candidate contact points and
     avoiding jerky contact forces over time (high-frequency vibrations),
@@ -295,10 +331,13 @@ class MinimizeFrictionReward(QuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         # Backup some user argument(s)
         self.cutoff = cutoff
@@ -311,7 +350,10 @@ class MinimizeFrictionReward(QuantityReward):
                 quantity=(MultiContactNormalizedSpatialForce, dict()),
                 axis=0,
                 keys=(0, 1))),
-            partial(radial_basis_function, cutoff=self.cutoff, order=2),
+            partial(radial_basis_function, **dict(
+                cutoff=self.cutoff,
+                shape=int(shape),
+                order=2)),
             is_normalized=True,
             is_terminal=False)
 
