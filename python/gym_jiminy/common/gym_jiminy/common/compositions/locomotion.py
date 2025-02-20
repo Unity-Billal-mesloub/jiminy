@@ -2,7 +2,7 @@
 """
 from functools import partial
 from dataclasses import dataclass
-from typing import Optional, Union, Sequence, Literal, Callable, cast
+from typing import Optional, Union, Sequence, Literal, Callable, Tuple, cast
 
 import numpy as np
 import numba as nb
@@ -11,7 +11,8 @@ import jiminy_py.core as jiminy
 import pinocchio as pin
 
 from ..bases import (
-    InterfaceJiminyEnv, InterfaceQuantity, QuantityEvalMode, QuantityReward)
+    InterfaceJiminyEnv, InterfaceQuantity, QuantityEvalMode, AbstractQuantity,
+    QuantityReward)
 from ..bases.compositions import ArrayOrScalar, ArrayLikeOrScalar
 from ..quantities import (
     OrientationType, MaskedQuantity, UnaryOpQuantity, ConcatenatedQuantity,
@@ -20,14 +21,14 @@ from ..quantities import (
     BaseOdometryAverageVelocity, CapturePoint, MultiFramePosition,
     MultiFootRelativeXYZQuat, MultiContactNormalizedSpatialForce,
     MultiFootNormalizedForceVertical, MultiFootCollisionDetection,
-    AverageBaseMomentum)
+    MultiFrameSpatialAverageVelocity, AverageBaseMomentum)
 from ..utils import quat_difference, quat_to_yaw
 
 from .generic import (
     TrackingQuantityReward, QuantityTermination,
     DriftTrackingQuantityTermination, ShiftTrackingQuantityTermination)
 from ..quantities.locomotion import angle_difference
-from .mixin import radial_basis_function
+from .mixin import KernelShape, radial_basis_function
 
 
 class TrackingBaseHeightReward(TrackingQuantityReward):
@@ -39,16 +40,20 @@ class TrackingBaseHeightReward(TrackingQuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         super().__init__(
             env,
             "reward_tracking_base_height",
             lambda mode: (BaseRelativeHeight, dict(mode=mode)),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class TrackingBaseOdometryVelocityReward(TrackingQuantityReward):
@@ -60,16 +65,20 @@ class TrackingBaseOdometryVelocityReward(TrackingQuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         super().__init__(
             env,
             "reward_tracking_odometry_velocity",
             lambda mode: (BaseOdometryAverageVelocity, dict(mode=mode)),
-            cutoff)
+            cutoff,
+            shape)
 
 
 @nb.jit(nopython=True, cache=True, fastmath=True, inline='always')
@@ -79,7 +88,8 @@ def l2_norm(vec: np.ndarray) -> np.ndarray:
     :param array: Input array.
     """
     assert vec.ndim == 1
-    return np.sqrt(np.sum(np.square(vec)))
+    # Note that `np.dot(x, x)` is faster than `np.sum(np.square(x))`
+    return np.sqrt(np.dot(vec, vec))
 
 
 class DriftTrackingBaseOdometryPoseReward(TrackingQuantityReward):
@@ -93,10 +103,14 @@ class DriftTrackingBaseOdometryPoseReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
+                 *,
                  horizon: float) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param horizon: Horizon over which values of the quantity will be
                         stacked before computing the drift.
         """
@@ -117,7 +131,8 @@ class DriftTrackingBaseOdometryPoseReward(TrackingQuantityReward):
                     (DeltaBaseOdometryOrientation, dict(
                         horizon=horizon,
                         mode=mode))))),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class TrackingCapturePointReward(TrackingQuantityReward):
@@ -129,10 +144,13 @@ class TrackingCapturePointReward(TrackingQuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         super().__init__(
             env,
@@ -153,12 +171,15 @@ class TrackingFootPositionsReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
                  *,
                  frame_names: Union[Sequence[str], Literal['auto']] = 'auto'
                  ) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param frame_names: Name of the frames corresponding to the feet of the
                             robot. 'auto' to automatically detect them from the
                             set of contact and force sensors of the robot.
@@ -173,7 +194,8 @@ class TrackingFootPositionsReward(TrackingQuantityReward):
                     mode=mode)),
                 axis=0,
                 keys=(0, 1, 2))),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class TrackingFootOrientationsReward(TrackingQuantityReward):
@@ -189,12 +211,15 @@ class TrackingFootOrientationsReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
                  *,
                  frame_names: Union[Sequence[str], Literal['auto']] = 'auto'
                  ) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param frame_names: Name of the frames corresponding to the feet of the
                             robot. 'auto' to automatically detect them from the
                             set of contact and force sensors of the robot.
@@ -210,6 +235,7 @@ class TrackingFootOrientationsReward(TrackingQuantityReward):
                 axis=0,
                 keys=(3, 4, 5, 6))),
             cutoff,
+            shape,
             op=cast(Callable[
                 [np.ndarray, np.ndarray], np.ndarray], quat_difference))
 
@@ -234,12 +260,15 @@ class TrackingFootForceDistributionReward(TrackingQuantityReward):
     def __init__(self,
                  env: InterfaceJiminyEnv,
                  cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL,
                  *,
                  frame_names: Union[Sequence[str], Literal['auto']] = 'auto'
                  ) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         :param frame_names: Name of the frames corresponding to the feet of the
                             robot. 'auto' to automatically detect them from the
                             set of contact and force sensors of the robot.
@@ -251,22 +280,27 @@ class TrackingFootForceDistributionReward(TrackingQuantityReward):
             lambda mode: (MultiFootNormalizedForceVertical, dict(
                 frame_names=frame_names,
                 mode=mode)),
-            cutoff)
+            cutoff,
+            shape)
 
 
 class MinimizeAngularMomentumReward(QuantityReward):
     """Reward the agent for minimizing the angular momentum in world plane.
 
     The angular momentum along x- and y-axes in local odometry frame is
-    transform in a normalized reward to maximize by applying RBF kernel on the
-    error. See `TrackingQuantityReward` documentation for technical details.
+    transformed in a normalized reward to maximize by applying a given RBF
+    kernel on the error. See `TrackingQuantityReward` documentation for
+    technical details.
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         # Backup some user argument(s)
         self.cutoff = cutoff
@@ -276,7 +310,10 @@ class MinimizeAngularMomentumReward(QuantityReward):
             env,
             "reward_momentum",
             (AverageBaseMomentum, dict(mode=QuantityEvalMode.TRUE)),
-            partial(radial_basis_function, cutoff=self.cutoff, order=2),
+            partial(radial_basis_function, **dict(
+                cutoff=self.cutoff,
+                shape=int(shape),
+                order=2)),
             is_normalized=True,
             is_terminal=False)
 
@@ -286,7 +323,7 @@ class MinimizeFrictionReward(QuantityReward):
     points and collision bodies, and to avoid jerky intermittent contact state.
 
     The L^2-norm is used to aggregate all the local tangential forces. While
-    the L^1-norm would be more natural in this specific cases, using the L-2
+    the L^1-norm would be more natural in this specific cases, using the L^2-
     norm is preferable as it promotes space-time regularity, ie balancing the
     force distribution evenly between all the candidate contact points and
     avoiding jerky contact forces over time (high-frequency vibrations),
@@ -294,10 +331,13 @@ class MinimizeFrictionReward(QuantityReward):
     """
     def __init__(self,
                  env: InterfaceJiminyEnv,
-                 cutoff: float) -> None:
+                 cutoff: float,
+                 shape: KernelShape = KernelShape.SQUARED_EXPONENTIAL) -> None:
         """
         :param env: Base or wrapped jiminy environment.
         :param cutoff: Cutoff threshold for the RBF kernel transform.
+        :param shape: Desired type of RBF kernel.
+                      Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
         """
         # Backup some user argument(s)
         self.cutoff = cutoff
@@ -310,7 +350,10 @@ class MinimizeFrictionReward(QuantityReward):
                 quantity=(MultiContactNormalizedSpatialForce, dict()),
                 axis=0,
                 keys=(0, 1))),
-            partial(radial_basis_function, cutoff=self.cutoff, order=2),
+            partial(radial_basis_function, **dict(
+                cutoff=self.cutoff,
+                shape=int(shape),
+                order=2)),
             is_normalized=True,
             is_terminal=False)
 
@@ -447,11 +490,11 @@ class FootCollisionTermination(QuantityTermination):
 
 
 @nb.jit(nopython=True, cache=True, fastmath=True)
-def min_depth(positions: np.ndarray,
-              heights: np.ndarray,
-              normals: np.ndarray) -> float:
-    """Approximate minimum distance from the ground profile among a set of the
-    query points.
+def depth_approx(positions: np.ndarray,
+                 heights: np.ndarray,
+                 normals: np.ndarray) -> np.ndarray:
+    """Approximate signed distance from the ground profile (positive if above
+    the ground, negative otherwise) of a set of the query points.
 
     Internally, it uses a first order approximation assuming zero local
     curvature around each query point.
@@ -469,12 +512,14 @@ def min_depth(positions: np.ndarray,
                     while the second correponds to the N individual query
                     points.
     """
-    return np.min((positions[2] - heights) * normals[2])
+    return (positions[2] - heights) * normals[2]
 
 
 @dataclass(unsafe_hash=True)
-class _MultiContactMinGroundDistance(InterfaceQuantity[float]):
-    """Minimum distance from the ground profile among all the contact points.
+class _MultiContactGroundDistanceAndNormal(
+        InterfaceQuantity[Tuple[np.ndarray, np.ndarray]]):
+    """Signed distance (positive if above the ground, negative otherwise) and
+    normal from the ground profile of all the candidate contact points.
 
     .. note::
         Internally, it does not compute the exact shortest distance from the
@@ -524,7 +569,7 @@ class _MultiContactMinGroundDistance(InterfaceQuantity[float]):
         engine_options = self.env.unwrapped.engine.get_options()
         self._heightmap = engine_options["world"]["groundProfile"]
 
-    def refresh(self) -> float:
+    def refresh(self) -> Tuple[np.ndarray, np.ndarray]:
         # Query the height and normal to the ground profile for the position in
         # world plane of all the contact points.
         positions = self.positions.get()
@@ -533,11 +578,13 @@ class _MultiContactMinGroundDistance(InterfaceQuantity[float]):
                                self._heights,
                                self._normals)
 
-        # Make sure the ground normal is normalized
+        # Make sure the ground normal has unit length
         # self._normals /= np.linalg.norm(self._normals, axis=0)
 
         # First-order distance estimation assuming no curvature
-        return min_depth(positions, self._heights, self._normals)
+        depth = depth_approx(positions, self._heights, self._normals)
+
+        return depth, self._normals
 
 
 class FlyingTermination(QuantityTermination):
@@ -571,9 +618,169 @@ class FlyingTermination(QuantityTermination):
         super().__init__(
             env,
             "termination_flying",
-            (_MultiContactMinGroundDistance, {}),  # type: ignore[arg-type]
+            (UnaryOpQuantity, dict(
+                quantity=(_MultiContactGroundDistanceAndNormal, {}),
+                op=lambda depths_and_normals: depths_and_normals[0].min()
+            )),
             None,
             max_height,
+            grace_period,
+            is_truncation=False,
+            training_only=training_only)
+
+
+@nb.jit(nopython=True, cache=True, fastmath=True)
+def compute_velocity_tangential(velocity: np.ndarray,
+                                normal: np.ndarray) -> np.ndarray:
+    """Compute the norm of the velocity projected in the plan orthogonal to a
+    given normal direction vector.
+
+    .. warning::
+        The normal direction vector used assumed to be normalized. It is up to
+        the pratitioner to make sure this holds true.
+
+    :param velocity: Linear velocity in world-aligned reference frame.
+    :param normal: Normal direction vector in world reference frame.
+    """
+    return np.sqrt(
+        np.sum(np.square(velocity), 0) - np.sum(velocity * normal, 0) ** 2)
+
+
+@nb.jit(nopython=True, cache=True, fastmath=True)
+def _compute_max_velocity_tangential(
+        velocities: np.ndarray,
+        depths: np.ndarray,
+        normals: np.ndarray,
+        height_thr: float) -> float:
+    """Compute the maximum norm of the tangential velocity wrt local curvature
+    of the ground profile of all the frames that are considered in contact.
+
+    :param velocities: Linear velocity of each frame in local-world-aligned
+                       reference frame.
+    :param depths: Signed distance of each frames from the ground as a vector.
+    :param normals: Normal direction vector that fully specify the local
+                    curvature of the ground profile at the location of each
+                    frame as a 2D array whose first dimension gathers the
+                    position components (X, Y, Z) and the second corresponds
+                    to individual frames.
+    :param height_thr: Distance threshold below which frames are considered in
+                       contact with the ground.
+    """
+    # Compute the norm of tangential velocity for all frames at once
+    velocities_tangential = compute_velocity_tangential(velocities, normals)
+
+    # Compute the maximum tangential velocity
+    velocity_tangential_max = 0.0
+    for depth, velocity_tangential in zip(
+            depths, velocities_tangential.T):
+        # Ignore frames that are not close enough from the ground
+        if depth > height_thr:
+            continue
+
+        # Update the maximum tangential velocity
+        velocity_tangential_max = max(
+            velocity_tangential_max, velocity_tangential)
+
+    return velocity_tangential_max
+
+
+@dataclass(unsafe_hash=True)
+class _MultiContactMaxVelocityTangential(AbstractQuantity[float]):
+    """Maximum norm of the tangential velocity wrt local curvature of the
+    ground profile of all the candidate contact frames that are close enough
+    from the ground.
+
+    .. note::
+        The maximum norm of the tangential velocity is considered to be 0.0 if
+        none of the candidate contact frames are close enough from the ground.
+    """
+
+    height_thr: float
+    """Height threshold above which a candidate contact point is deemed too far
+    from the ground and is discarded from the set of frames being considered
+    when looking for the maximum norm of the tangential velocity.
+    """
+
+    def __init__(self,
+                 env: InterfaceJiminyEnv,
+                 parent: Optional[InterfaceQuantity],
+                 height_thr: float) -> None:
+        """
+        :param env: Base or wrapped jiminy environment.
+        :param parent: Higher-level quantity from which this quantity is a
+                       requirement if any, `None` otherwise.
+        :param height_thr: Height threshold above which a candidate contact
+                           point is ignored for being too far from the ground.
+        """
+        # Backup some user-argument(s)
+        self.height_thr = height_thr
+
+        # Call base implementation
+        super().__init__(
+            env,
+            parent,
+            requirements=dict(
+                depths_and_normals=(
+                    _MultiContactGroundDistanceAndNormal, {}),
+                v_spatial=(
+                    MultiFrameSpatialAverageVelocity, dict(
+                        frame_names=env.robot.contact_frame_names,
+                        reference_frame=pin.LOCAL_WORLD_ALIGNED))),
+            auto_refresh=False)
+
+    def refresh(self) -> float:
+        # Get the average linear velocity of all the contact points
+        v_spatial = self.v_spatial.get()
+        velocities = v_spatial[:3]
+
+        # Get the distance and normal of all the contact points from the ground
+        depths, normals = self.depths_and_normals.get()
+
+        # Compute the maximum tangential velocity
+        return _compute_max_velocity_tangential(
+            velocities, depths, normals, self.height_thr)
+
+
+class SlippageTermination(QuantityTermination):
+    """Discourage the agent of sliding on the ground purposedly by terminating
+    the episode immediately if some of the active contact points are slipping
+    on the ground.
+
+    This kind of behavior is usually undesirable because they are hardly
+    repeatable and tend to transfer poorly to reality. Moreover, it may cause
+    a sense of poorly controlled motion to people nearby.
+    """
+    def __init__(self,
+                 env: InterfaceJiminyEnv,
+                 height_thr: float,
+                 max_velocity: float,
+                 grace_period: float = 0.0,
+                 *,
+                 training_only: bool = False) -> None:
+        """
+        :param env: Base or wrapped jiminy environment.
+        :param height_thr: Height threshold below which a candidate contact
+                           point is closed enough from the ground for its
+                           tangential velocity to be considered.
+        :param max_velocity: Maximum norm of the tangential velocity wrt ground
+                             of the contact points that are close enough above
+                             which termination is triggered.
+        :param grace_period: Grace period effective only at the very beginning
+                             of the episode, during which the latter is bound
+                             to continue whatever happens.
+                             Optional: 0.0 by default.
+        :param training_only: Whether the termination condition should be
+                              completely by-passed if the environment is in
+                              evaluation mode.
+                              Optional: False by default.
+        """
+        super().__init__(
+            env,
+            "termination_slippage",
+            (_MultiContactMaxVelocityTangential, dict(
+                height_thr=height_thr)),
+            None,
+            max_velocity,
             grace_period,
             is_truncation=False,
             training_only=training_only)

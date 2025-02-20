@@ -4,6 +4,7 @@ and the application (locomotion, grasping...).
 """
 import math
 import logging
+from enum import IntEnum
 from functools import partial
 from typing import Sequence, Tuple, Optional, Union, Literal
 
@@ -22,31 +23,79 @@ ArrayOrScalar = Union[np.ndarray, float]
 LOGGER = logging.getLogger(__name__)
 
 
+class KernelShape(IntEnum):
+    """Set of pre-defined parameteric positive-definite kernel functions.
+
+    A kernel is a function of two arguments that measures how similar or
+    related they are to each other. Kernels define basis functions for
+    approximation spaces, which is often referred as such.
+
+    .. seealso::
+        For technical reference about kernels, see:
+        https://www.cs.cornell.edu/~bindel/class/sjtu-summer18/lec/2018-06-27.pdf
+
+    """  # noqa: E501  # pylint: disable=line-too-long
+
+    EXPONENTIAL = 0
+    r""":math:`k(x, y) = \exp{- \frac{dist(x, x_ref)^2}{2 \sigma^2}}`
+    """
+
+    SQUARED_EXPONENTIAL = 1
+    r""":math:`k(x, y) = \exp{- \frac{dist(x, x_ref)}{\sigma}}`
+    """
+
+
+# Define proxies for fast lookup
+_EXPONENTIAL, _SQUARED_EXPONENTIAL = (  # pylint: disable=invalid-name
+    KernelShape)
+
+
 @nb.jit(nopython=True, cache=True, fastmath=True)
 def radial_basis_function(error: ArrayOrScalar,
                           cutoff: float,
+                          shape: int = int(KernelShape.SQUARED_EXPONENTIAL),
                           order: int = 2) -> float:
-    r"""Radial basis function (RBF) kernel (aka squared-exponential kernel).
+    r"""Radial basis function (RBF) kernel.
 
-    The RBF kernel is defined as:
+    This method implements a set of RBF kernels, in particular the (absolute)
+    exponential kernel and the squared-exponential (also called quadratic
+    exponential) kernel
+
+    A RBF kernel is defined as:
 
     .. math::
 
-        f(x) = \exp{\frac{dist(x, x_ref)^2}{2 \sigma^2}}
+        f(x) = \phi{dist(x, x_{ref})}
 
-    where :math:`dist(x, x_ref)` is some distance metric of the error between
-    the observed (:math:`x`) and desired (:math:`x_ref`) values of a
-    multi-variate quantity. The L^2-norm (Euclidean norm) was used when it was
-    first introduced as a non-linear kernel for Support Vector Machine (SVM)
-    algorithm. Such restriction does not make sense in the context of reward
-    normalization. The scaling parameter :math:`sigma` is derived from the
-    user-specified cutoff. The latter is defined as the distance from which the
-    attenuation reaches 99%.
+    where :math:`\phi` is a real-valued function and :math:`dist(x, x_{ref})`
+    is some distance metric of the error between the observed (:math:`x`) and
+    desired (:math:`x_{ref}`) values of a multi-variate quantity, which is
+    sometimes referred as fixed point or center.
+
+    The L^2-norm (Euclidean norm) was used when it was first introduced as a
+    non-linear kernel for Support Vector Machine (SVM) algorithm. Such
+    restriction does not make sense in the context of reward normalization.
+
+    The cut-off threshold is defined as the distance at which the attenuation
+    reaches 99%, i.e. f(x) = 0.01. The pre-defined kernel shape will be scaled
+    accordingly to satisfy this requirement.
+
+    .. seealso::
+        For technical details about Radial Basis Functions, see:
+        https://en.wikipedia.org/wiki/Radial_basis_function_kernel
 
     :param error: Multi-variate error on some tangent space as a 1D array.
     :param cutoff: Cut-off threshold to consider.
+    :param shape: Desired pre-defined kernel shape.
+                  Optional: `KernelShape.SQUARED_EXPONENTIAL` by default.
     :param order: Order of L^p-norm that will be used as distance metric.
+                  Optional: 2 by default.
     """
+    # Passing IntEnum is explicitly forbidden as it is extremely slow in Numba
+    assert isinstance(shape, int)
+
+    # Compute either the distance or the squared distance for efficiency
+    dist, squared_dist = 0.0, 0.0
     error_ = np.atleast_1d(np.asarray(error))
     is_contiguous = error_.flags.f_contiguous or error_.flags.c_contiguous
     if is_contiguous or order != 2:
@@ -57,13 +106,25 @@ def radial_basis_function(error: ArrayOrScalar,
         else:
             error1d = np.asarray(error_.T).ravel()
         if order == 2:
-            squared_dist_rel = np.dot(error1d, error1d) / math.pow(cutoff, 2)
+            squared_dist = np.dot(error1d, error1d)
+            is_squared = True
         else:
-            squared_dist_rel = math.pow(
-                np.linalg.norm(error1d, order) / cutoff, 2)
+            dist = float(np.linalg.norm(error1d, order))
+            is_squared = False
     else:
-        squared_dist_rel = np.sum(np.square(error_)) / math.pow(cutoff, 2)
-    return math.pow(CUTOFF_ESP, squared_dist_rel)
+        squared_dist = np.sum(np.square(error_))
+        is_squared = True
+
+    # Apply the desired non-linear transform
+    if shape == _SQUARED_EXPONENTIAL:
+        if not is_squared:
+            squared_dist = math.pow(dist, 2)
+        return math.pow(CUTOFF_ESP, squared_dist / math.pow(cutoff, 2))
+    if shape == _EXPONENTIAL:
+        if is_squared:
+            dist = math.sqrt(squared_dist)
+        return math.pow(CUTOFF_ESP, dist / cutoff)
+    raise ValueError(f"Kernerl shape '{shape}' not supported.")
 
 
 @nb.jit(nopython=True, cache=True, fastmath=True)

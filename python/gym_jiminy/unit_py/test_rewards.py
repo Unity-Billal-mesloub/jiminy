@@ -11,7 +11,6 @@ from jiminy_py.log import extract_trajectory_from_log
 
 from gym_jiminy.common.bases import InterfaceJiminyEnv
 from gym_jiminy.common.compositions import (
-    CUTOFF_ESP,
     TrackingActuatedJointPositionsReward,
     TrackingBaseOdometryVelocityReward,
     TrackingBaseHeightReward,
@@ -22,6 +21,7 @@ from gym_jiminy.common.compositions import (
     MinimizeFrictionReward,
     SurviveReward,
     AdditiveMixtureReward)
+from gym_jiminy.common.compositions.mixin import CUTOFF_ESP
 from gym_jiminy.toolbox.compositions import (
     sigmoid_normalization,
     MaximizeRobustness)

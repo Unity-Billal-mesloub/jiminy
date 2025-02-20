@@ -21,8 +21,8 @@ from ..quantities import (
     OrientationType, UnaryOpQuantity, MultiAryOpQuantity, MaskedQuantity,
     ConcatenatedQuantity, DeltaQuantity, FramePosition, FrameOrientation,
     MultiFramePosition, MultiFrameXYZQuat, MultiFrameMeanXYZQuat,
-    FrameSpatialAverageVelocity, AverageFrameRollPitch,
-    MultiFrameCollisionDetection)
+    MultiFrameSpatialAverageVelocity, MultiFrameCollisionDetection,
+    AverageFrameRollPitch)
 from ..utils import (
     matrix_to_yaw, quat_to_yaw, quat_to_matrix, quat_multiply, quat_apply,
     rpy_to_quat)
@@ -225,7 +225,7 @@ class BaseSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
     local odometry frame at the end of the agent step.
 
     The average spatial velocity is obtained by finite difference. See
-    `FrameSpatialAverageVelocity` documentation for details.
+    `MultiFrameSpatialAverageVelocity` documentation for details.
 
     Roughly speaking, the local odometry reference frame is half-way between
     `pinocchio.LOCAL` and `pinocchio.LOCAL_WORLD_ALIGNED`. The z-axis is
@@ -263,25 +263,28 @@ class BaseSpatialAverageVelocity(InterfaceQuantity[np.ndarray]):
             env,
             parent,
             requirements=dict(
-                v_spatial=(FrameSpatialAverageVelocity, dict(
-                    frame_name="root_joint",
-                    reference_frame=pin.LOCAL,
-                    mode=mode)),
                 quat_no_yaw_mean=(AverageFrameRollPitch, dict(
                     frame_name="root_joint",
+                    mode=mode)),
+                v_spatial=(MultiFrameSpatialAverageVelocity, dict(
+                    frame_names=("root_joint",),
+                    reference_frame=pin.LOCAL,
                     mode=mode))),
             auto_refresh=False)
 
         # Pre-allocate memory for the spatial velocity
-        self._v_spatial: np.ndarray = np.zeros(6)
+        self._v_spatial = np.zeros(6)
 
         # Reshape linear plus angular velocity vector to vectorize rotation
         self._v_lin_ang = self._v_spatial.reshape((2, 3)).T
 
     def refresh(self) -> np.ndarray:
-        # Translate spatial base velocity from local to odometry frame
+        # Get the mean frame quaternion (without yaw) and spatial velocity
+        quat_no_yaw_mean = self.quat_no_yaw_mean.get()
         v_spatial = self.v_spatial.get()
-        quat_apply(self.quat_no_yaw_mean.get(),
+
+        # Translate spatial base velocity from local to odometry frame
+        quat_apply(quat_no_yaw_mean,
                    v_spatial.reshape((2, 3)).T,
                    self._v_lin_ang)
 
@@ -377,14 +380,12 @@ class AverageBaseMomentum(AbstractQuantity[np.ndarray]):
             env,
             parent,
             requirements=dict(
-                v_angular=(MaskedQuantity, dict(
-                    quantity=(FrameSpatialAverageVelocity, dict(
-                        frame_name="root_joint",
-                        reference_frame=pin.LOCAL,
-                        mode=mode)),
-                    keys=(3, 4, 5))),
                 quat_no_yaw_mean=(AverageFrameRollPitch, dict(
                     frame_name="root_joint",
+                    mode=mode)),
+                v_spatial=(MultiFrameSpatialAverageVelocity, dict(
+                    frame_names=("root_joint",),
+                    reference_frame=pin.LOCAL,
                     mode=mode))),
             auto_refresh=False)
 
@@ -402,12 +403,15 @@ class AverageBaseMomentum(AbstractQuantity[np.ndarray]):
         self._inertia_local = self.pinocchio_model.inertias[1].inertia
 
     def refresh(self) -> np.ndarray:
+        # Get the mean frame quaternion (without yaw) and spatial velocity
+        quat_no_yaw_mean = self.quat_no_yaw_mean.get()
+        v_spatial = self.v_spatial.get()
+
         # Compute the local angular momentum of inertia
-        np.matmul(self._inertia_local, self.v_angular.get(), self._h_angular)
+        np.matmul(self._inertia_local, v_spatial[3:, 0], self._h_angular)
 
         # Apply quaternion rotation of the local angular momentum of inertia
-        quat_apply(
-            self.quat_no_yaw_mean.get(), self._h_angular, self._h_angular)
+        quat_apply(quat_no_yaw_mean, self._h_angular, out=self._h_angular)
 
         return self._h_angular
 
@@ -853,7 +857,7 @@ class CenterOfMass(AbstractQuantity[np.ndarray]):
             auto_refresh=False)
 
         # Pre-allocate memory for the CoM quantity
-        self._com_data: np.ndarray = np.array([])
+        self._com_data = np.array([])
 
     def initialize(self) -> None:
         # Call base implementation
