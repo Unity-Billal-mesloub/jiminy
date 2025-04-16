@@ -54,6 +54,7 @@ enableFlexibility = true
 [robot.motors.PendulumJoint]
 velocityLimitFromUrdf = true
 velocityLimit = 1000.0
+velocityEffortInvSlope = 0.1
 effortLimitFromUrdf = true
 effortLimit = 1000.0
 enableFriction = true
@@ -63,7 +64,7 @@ frictionDryPositive = -5.0
 frictionDrySlope = 1000.0
 frictionViscousNegative = 0.0
 frictionViscousPositive = 0.0
-armature = 0.0
+armature = 1.0
 
 # ============= Encoder sensors ===============
 

@@ -9,3 +9,4 @@ enableFlexibility = false
 velocityLimitFromUrdf = false
 effortLimitFromUrdf = false
 enableFriction = false
+enableArmature = false
