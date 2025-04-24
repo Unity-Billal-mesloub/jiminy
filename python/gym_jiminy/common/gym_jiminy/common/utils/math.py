@@ -398,7 +398,7 @@ def transforms_to_xyzquat(
     else:
         out2d = out[:, np.newaxis] if out.ndim == 1 else out
         assert out2d.shape == (7, len(transform_list))
-        out_ = out2d
+        out_ = out2d  # type: ignore[assignment]
 
     # Simply copy the translation
     for i, (translation, _) in enumerate(transform_list):

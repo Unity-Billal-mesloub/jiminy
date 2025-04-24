@@ -63,7 +63,7 @@ jobs:
         echo "InstallDir=${GITHUB_WORKSPACE}/install" >> $GITHUB_ENV
 
         "${PYTHON_EXECUTABLE}" -m pip install setuptools wheel "pip>=20.3,<25.1"
-        "${PYTHON_EXECUTABLE}" -m pip install twine cmake
+        "${PYTHON_EXECUTABLE}" -m pip install twine "cmake<4.0.0"
     - name: Install latest numpy version at build-time for run-time binary compatibility
       run: |
         "${PYTHON_EXECUTABLE}" -m pip install --upgrade "numpy>=1.24" numba

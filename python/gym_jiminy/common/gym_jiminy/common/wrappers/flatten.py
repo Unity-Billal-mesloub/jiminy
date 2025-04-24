@@ -92,7 +92,9 @@ class FlattenObservation(BaseTransformObservation[FlattenedObs, Obs, Act],
             for bound_leaves in zip(*min_max_bounds_leaves))
 
         # Initialize the observation space with proper dtype
-        self.observation_space = gym.spaces.Box(low, high, dtype=self.dtype)
+        self.observation_space = gym.spaces.Box(
+            low, high, dtype=self.dtype  # type: ignore[arg-type,unused-ignore]
+            )
 
     def transform_observation(self) -> None:
         """Update in-place pre-allocated transformed observation buffer with
@@ -159,7 +161,9 @@ class FlattenAction(BaseTransformAction[FlattenedAct, Obs, Act],
             for bound_leaves in zip(*min_max_bounds_leaves))
 
         # Initialize the action space with proper dtype
-        self.action_space = gym.spaces.Box(low, high, dtype=self.dtype)
+        self.action_space = gym.spaces.Box(
+            low, high, dtype=self.dtype  # type: ignore[arg-type,unused-ignore]
+            )
 
     def transform_action(self, action: FlattenedAct) -> None:
         """Update in-place the pre-allocated action buffer of the wrapped

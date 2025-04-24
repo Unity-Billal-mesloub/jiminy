@@ -501,6 +501,52 @@ namespace jiminy
         }
     }
 
+    struct getBoundedJointModelAlgo :
+    public pinocchio::fusion::JointUnaryVisitorBase<getBoundedJointModelAlgo>
+    {
+        typedef boost::fusion::vector<pinocchio::JointModel & /* jointModelBounded */> ArgsType;
+
+        template<typename JointModelTpl>
+        static void algo(const pinocchio::JointModelBase<JointModelTpl> & model,
+                         pinocchio::JointModel & jointModelBounded)
+        {
+            jointModelBounded = getBoundedJointModel(model.derived());
+        }
+
+        template<typename JointModelTpl>
+        static std::enable_if_t<
+            !is_pinocchio_joint_revolute_unbounded_v<JointModelTpl> &&
+                !is_pinocchio_joint_revolute_unbounded_unaligned_v<JointModelTpl>,
+            pinocchio::JointModel>
+        getBoundedJointModel(const JointModelTpl & jointModel)
+        {
+            return jointModel;
+        }
+
+        template<typename Scalar, int Options, int axis>
+        static pinocchio::JointModel getBoundedJointModel(
+            const pinocchio::JointModelRevoluteUnboundedTpl<Scalar, Options, axis> &)
+        {
+            return pinocchio::JointModelRevoluteTpl<Scalar, Options, axis>{};
+        }
+
+
+        template<typename Scalar, int Options>
+        static pinocchio::JointModel getBoundedJointModel(
+            const pinocchio::JointModelRevoluteUnboundedUnalignedTpl<Scalar, Options> & jointModel)
+        {
+            return pinocchio::JointModelRevoluteUnalignedTpl<Scalar, Options>{jointModel.axis};
+        }
+    };
+
+    pinocchio::JointModel getBoundedJointModel(const pinocchio::JointModel & jointModel) noexcept
+    {
+        pinocchio::JointModel jointModelBounded{jointModel};
+        getBoundedJointModelAlgo::run(
+            jointModel, typename getBoundedJointModelAlgo::ArgsType(jointModelBounded));
+        return jointModelBounded;
+    }
+
     void addBacklashJointAfterMechanicalJoint(pinocchio::Model & model,
                                               const std::string & parentJointName,
                                               const std::string & newJointName)
@@ -519,9 +565,12 @@ namespace jiminy
                          "Backlash can only be associated with a 1-dof linear or rotary joint.");
         }
 
+        // Make sure that the joint model is bounded
+        const pinocchio::JointModel jointModel = getBoundedJointModel(parentJointModel);
+
         // Add new joint after the original joint
-        pinocchio::JointIndex newJointIndex = model.addJoint(
-            parentJointIndex, parentJointModel, pinocchio::SE3::Identity(), newJointName);
+        pinocchio::JointIndex newJointIndex =
+            model.addJoint(parentJointIndex, jointModel, pinocchio::SE3::Identity(), newJointName);
 
         // Add new joint to frame list
         const pinocchio::FrameIndex parentFrameIndex = getFrameIndex(model, parentJointName);
