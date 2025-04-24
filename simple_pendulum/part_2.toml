@@ -2,5 +2,6 @@
 enableFlexibility = false
 
 [robot.motors.PendulumJoint]
+enableBacklash = false
 enableFriction = false
 enableArmature = false

@@ -8,5 +8,6 @@ enableFlexibility = false
 [robot.motors.PendulumJoint]
 velocityLimitFromUrdf = false
 effortLimitFromUrdf = false
+enableBacklash = false
 enableFriction = false
 enableArmature = false
