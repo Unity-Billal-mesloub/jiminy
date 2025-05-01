@@ -121,7 +121,7 @@ You have to preinstall by yourself the (free) MSVC 2019+ toolchain.
 Then, install `setuptools`, `wheel` and `numpy`.
 
 ```powershell
-python -m pip install setuptools wheel "numpy>=1.24"
+python -m pip install "setuptools<80.0" wheel "pip>=20.3,<25.1" "numpy>=1.24"
 ```
 
 ### Jiminy dependencies build and install

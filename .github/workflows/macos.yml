@@ -70,7 +70,7 @@ jobs:
           echo "JIMINY_PANDA3D_FORCE_TINYDISPLAY=" >> $GITHUB_ENV
         fi
 
-        "${PYTHON_EXECUTABLE}" -m pip install setuptools wheel "pip>=20.3,<25.1"
+        "${PYTHON_EXECUTABLE}" -m pip install "setuptools<80.0" wheel "pip>=20.3,<25.1"
         "${PYTHON_EXECUTABLE}" -m pip install delocate twine
     - name: Install pre-compiled binaries for additional gym-jiminy dependencies
       run: |
