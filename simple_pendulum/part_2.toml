@@ -1,5 +1,14 @@
+# ============= Engine stepper ================
+
+[engine.stepper]
+odeSolver = "runge_kutta_dopri5"
+
+# =============== Flexibilities ===============
+
 [robot.model.dynamics]
 enableFlexibility = false
+
+# ================== Motors ===================
 
 [robot.motors.PendulumJoint]
 enableBacklash = false

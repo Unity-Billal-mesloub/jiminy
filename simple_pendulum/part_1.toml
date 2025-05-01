@@ -1,9 +1,16 @@
+# ============= Engine stepper ================
+
 [engine.stepper]
+odeSolver = "runge_kutta_dopri5"
 sensorsUpdatePeriod = 0.0
 controllerUpdatePeriod = 0.0
 
+# =============== Flexibilities ===============
+
 [robot.model.dynamics]
 enableFlexibility = false
+
+# ================== Motors ===================
 
 [robot.motors.PendulumJoint]
 velocityLimitFromUrdf = false
@@ -11,3 +18,4 @@ effortLimitFromUrdf = false
 enableBacklash = false
 enableFriction = false
 enableArmature = false
+enableVelocityLimit = false

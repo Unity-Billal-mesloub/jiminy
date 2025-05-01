@@ -1,2 +1,23 @@
-# No bullshit, this is the way
+# ============= Encoder sensors ===============
 
+[robot.sensors.EncoderSensor.PendulumJoint]
+bias = [0.0, 0.0]
+delay = 2.0e-3
+delayInterpolationOrder = 1
+noiseStd = [0.0, 0.03]
+
+# ==============+ Effort sensors ==============
+
+[robot.sensors.EffortSensor.PendulumJoint]
+bias = [0.0,]
+delay = 2.0e-3
+delayInterpolationOrder = 1
+noiseStd = [1.0,]
+
+# =============== IMU sensors =================
+
+[robot.sensors.ImuSensor.PendulumMass]
+bias = [0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.0, 0.0, 0.0]
+delay = 2.0e-3
+delayInterpolationOrder = 1
+noiseStd = [0.03, 0.03, 0.03, 0.2, 0.2, 0.2]
