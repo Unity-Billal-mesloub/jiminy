@@ -343,9 +343,10 @@ def compute_convex_chebyshev_center(
     .. warning:
         The convex hull must be non-degenerated, ie having at least 3 points.
 
-    :param equations: Equations of the edges as a 2D array whose first dimension
-                      corresponds to individual edges while the second gathers
-                      the 2 components of the normal plus the offset.
+    :param equations: Equations of the edges as a 2D array whose first
+                      dimension corresponds to individual edges while the
+                      second gathers the 2 components of the normal plus the
+                      offset.
 
     :return: Pair (center, radius) where 'center' is a 1D array, and 'radius'
     is a positive scalar floating point value.

@@ -1,6 +1,6 @@
 # pylint: disable=missing-module-docstring
 
-from .mixin import (CUTOFF_ESP,
+from .mixin import (KernelShape,
                     radial_basis_function,
                     AdditiveMixtureReward,
                     MultiplicativeMixtureReward)
@@ -30,10 +30,11 @@ from .locomotion import (TrackingBaseHeightReward,
                          FallingTermination,
                          FootCollisionTermination,
                          FlyingTermination,
+                         SlippageTermination,
                          ImpactForceTermination)
 
 __all__ = [
-    "CUTOFF_ESP",
+    "KernelShape",
     "radial_basis_function",
     "AdditiveMixtureReward",
     "MultiplicativeMixtureReward",
@@ -60,6 +61,7 @@ __all__ = [
     "MechanicalSafetyTermination",
     "MechanicalPowerConsumptionTermination",
     "FlyingTermination",
+    "SlippageTermination",
     "BaseRollPitchTermination",
     "FallingTermination",
     "FootCollisionTermination",

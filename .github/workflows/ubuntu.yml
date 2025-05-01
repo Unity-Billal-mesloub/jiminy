@@ -75,7 +75,7 @@ jobs:
         if [[ "${{ matrix.GENERATOR }}" == 'Ninja' ]] ; then
           sudo apt install ninja-build
         fi
-        "${PYTHON_EXECUTABLE}" -m pip install torch -f https://download.pytorch.org/whl/torch
+        "${PYTHON_EXECUTABLE}" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
         "${PYTHON_EXECUTABLE}" -m pip install "gymnasium>=0.28,<1.1" "stable_baselines3>=2.0,<2.5"
 
     #####################################################################################
@@ -84,7 +84,7 @@ jobs:
       if: matrix.OS == 'ubuntu-24.04' && matrix.BUILD_TYPE != 'Debug' && matrix.COMPILER == 'gcc'
       run: |
         "${PYTHON_EXECUTABLE}" -m pip install flake8
-        flake8 --ignore=E121,E126,E123,E226,E241,E266,E402,E741,F405,W504 \
+        flake8 --ignore=E121,E126,E123,E226,E241,E266,E402,E741,F405,F824,W504 \
                --count --show-source --statistics --exclude unit_py,examples "${RootDir}/python/"
 
     #####################################################################################

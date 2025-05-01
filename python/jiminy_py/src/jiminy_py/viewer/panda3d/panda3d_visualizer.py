@@ -1795,7 +1795,7 @@ class Panda3dApp(panda3d_viewer.viewer_app.ViewerApp):
 
         # Reset orbital camera control
         if camera_name is None:
-            self.camera_lookat = np.array([0.0, 0.0, 0.0])
+            self.camera_lookat = np.zeros(3)
             self.move_orbital_camera_task()
 
     def get_camera_lookat(self) -> np.ndarray:
@@ -1811,7 +1811,8 @@ class Panda3dApp(panda3d_viewer.viewer_app.ViewerApp):
         """
         self.camera.set_pos(
             self.camera.get_pos() + Vec3(*pos) - Vec3(*self.camera_lookat))
-        self.camera_lookat = np.asarray(pos)
+        self.camera_lookat = (
+            np.asarray(pos))  # type: ignore[assignment,unused-ignore]
 
     def set_window_size(self, width: int, height: int) -> None:
         """Set the size of the offscreen window used for screenshot.

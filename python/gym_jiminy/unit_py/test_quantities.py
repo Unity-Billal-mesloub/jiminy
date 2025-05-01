@@ -34,7 +34,7 @@ from gym_jiminy.common.quantities import (
     MultiFootNormalizedForceVertical,
     FrameOrientation,
     FrameXYZQuat,
-    FrameSpatialAverageVelocity,
+    MultiFrameSpatialAverageVelocity,
     BaseOdometryAverageVelocity,
     BaseRelativeHeight,
     AverageBaseMomentum,
@@ -226,9 +226,9 @@ class Quantities(unittest.TestCase):
         assert isinstance(env, InterfaceJiminyEnv)
         env.reset(seed=0)
 
-        quantity_cls = FrameSpatialAverageVelocity
+        quantity_cls = MultiFrameSpatialAverageVelocity
         quantity_kwargs = dict(
-            frame_name=env.robot.pinocchio_model.frames[1].name)
+            frame_names=(env.robot.pinocchio_model.frames[1].name,))
         env.quantities.add("v_avg", (quantity_cls, quantity_kwargs))
         env.quantities.add("v_avg_2", (quantity_cls, quantity_kwargs))
 
@@ -365,8 +365,8 @@ class Quantities(unittest.TestCase):
                     mode=mode)),
                 lambda mode: (MultiFootMeanOdometryPose, dict(
                     mode=mode)),
-                lambda mode: (FrameSpatialAverageVelocity, dict(
-                    frame_name=frame_names[1],
+                lambda mode: (MultiFrameSpatialAverageVelocity, dict(
+                    frame_names=(frame_names[1],),
                     mode=mode)),
                 lambda mode: (BaseOdometryAverageVelocity, dict(
                     mode=mode)),

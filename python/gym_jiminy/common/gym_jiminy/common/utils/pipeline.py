@@ -26,7 +26,6 @@ import jiminy_py.core as jiminy
 import pinocchio as pin
 from jiminy_py.dynamics import State, Trajectory, TrajectoryTimeMode
 
-from ..quantities import EnergyGenerationMode, OrientationType
 from ..bases import (QuantityEvalMode,
                      InterfaceJiminyEnv,
                      InterfaceBlock,
@@ -40,6 +39,8 @@ from ..bases import (QuantityEvalMode,
                      AbstractReward,
                      MixtureReward,
                      AbstractTerminationCondition)
+from ..quantities import EnergyGenerationMode, OrientationType
+from ..compositions import KernelShape
 from ..blocks import QuantityObserver
 from ..envs import BaseJiminyEnv
 
@@ -47,6 +48,7 @@ from ..envs import BaseJiminyEnv
 ENUM_TYPES = (EnergyGenerationMode,
               QuantityEvalMode,
               OrientationType,
+              KernelShape,
               pin.KinematicLevel)
 ENUM_NAME_TO_MODULE_MAP = {enum_type.__name__: enum_type.__module__.split(".")
                            for enum_type in ENUM_TYPES}

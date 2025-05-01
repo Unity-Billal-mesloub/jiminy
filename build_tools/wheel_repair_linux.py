@@ -3,7 +3,8 @@ import sys
 import stat
 import shutil
 import itertools
-from typing import Tuple
+from pathlib import Path
+from typing import Tuple, Union
 
 import auditwheel.repair
 from auditwheel.repair import logger
@@ -18,13 +19,14 @@ WHITE_LIST_DEPS = (
 
 copylib_orig = auditwheel.repair.copylib
 
-def copylib(src_path: str, dest_dir: str,
-            patcher: ElfPatcher) -> Tuple[str, str]:
+def copylib(src_path: Union[str, Path],
+            dest_dir: Union[str, Path],
+            patcher: ElfPatcher) -> Tuple[str, Union[str, Path]]:
     # Do NOT hash filename to make it unique in the particular case of boost
     # python modules. It is necessary for cross-module interoperability.
-    if any(pattern in src_path for pattern in WHITE_LIST_DEPS):
+    if any(pattern in str(src_path) for pattern in WHITE_LIST_DEPS):
         src_name = os.path.basename(src_path)
-        dest_path = os.path.join(dest_dir, src_name)
+        dest_path = os.path.join(str(dest_dir), src_name)
         if os.path.exists(dest_path):
             return src_name, dest_path
 
@@ -38,6 +40,8 @@ def copylib(src_path: str, dest_dir: str,
         if any(itertools.chain(rpaths['rpaths'], rpaths['runpaths'])):
             patcher.set_rpath(dest_path, dest_dir)
 
+        if isinstance(src_path, Path):
+            return src_name, Path(dest_path)
         return src_name, dest_path
     return copylib_orig(src_path, dest_dir, patcher)
 
