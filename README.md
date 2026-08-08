@@ -11,15 +11,15 @@ ____
 [![Try it in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/duburcqa/jiminy.git/demo?labpath=tutorial.ipynb)
 [![Try it in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/duburcqa/jiminy/blob/demo/tutorial.ipynb)
 [![Try in in Deepnote](https://img.shields.io/badge/Try%20it-Deepnote-blue?logo=data:image/png;base64,AAABAAEAEBAAAAEAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAQAQAAAAAAAAAAAAAAAAAAAAAAADCbwOXtGUC/7RlAv+0ZQL/tGUC/7RlAv+zZAL8p1kN5c2ALr72oD98+LRXKf///wIAAAAAAAAAAAAAAAAAAAAA7KMSDrprAs+0ZQL/tGUC/7RlAv+0ZQL/tGUC/7JkAv+FPwL/w3Al//KWN/n0nj2m97hVJAAAAAAAAAAAAAAAAAAAAADQfAUxuWkC87RlAv+0ZQL/tGUC/7RlAv+0ZQL/qVwB/3MxBP/lizP/75M3//SXOun7pURHAAAAAAAAAAAAAAAAAAAAAMVzAmq1ZgL9tGUC/7RlAv+0ZQL/tGUC/7NkAv9tLAD/xXIm/++TN//vkzf/8pY48fSoQjIAAAAAAAAAAAAAAAD/v38EwG4Eq7RlAv+0ZQL/tGUC/7RlAv+lWQH/aCgA/7tqIv/vkzf/75M3/++TN//zmDzD//+/BAAAAAAAAAAAAAAAAN+fFRi6aQLetGUC/7JjAv+eUwH/ci8A/2goAP/OeSn/75M3/++TN//vkzf/8pU3/fKxSTsAAAAAAAAAAAAAAAAAAAAAtWAHQoA6APlxLwD/aCgA/2goAP+HQA3/7JA1/++TN//vkzf/75M3/++TN//4oDx/AAAAAAAAAAAAAAAAAAAAAP//AAF2LwCMaCgA/20sA/+ZTxT/5Ysz/++TN//vkzf/75M3/++TN//vkzf/8Z8+qPapRHvwnkCe8J5AnvCeQJ7wnkCe6pY5rc95KfzkijL/75M3/++TN//vkzf/75M3/++TN//vkzf/75M3//ajQ7L6rkw/8pc4+e+TN//vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/75M3/++TN//ynUCf////AfWgPYnvkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/96VCbAAAAAD/v1UM8Zk6zu+TN//vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/8pc58vbBTx0AAAAAAAAAAPWoQzXxljj175M3/++TN//vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/8ZQ3/vSkPncAAAAAAAAAAAAAAAAAAAAA858/gPGUN/7vkzf/75M3/++TN//vkzf/75M3/++TN//vkzf/8pU5+/SgP4z//6oDAAAAAAAAAAAAAAAAAAAAAP/MZgrymjrK75M3/++TN//vkzf/75M3//CTN//ylDj78Zo6yvisSEr///8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9ahDNfCVOfbwlTjz8pY43PKdPbH0oD5/9q5MOf//qgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==&style=flat)](https://deepnote.com/workspace/alexis-duburcq-7e87783d-6f49-4586-ae21-9967ef0c7882/project/jiminy-demo-3999591e-5f92-4474-96cc-cddc08b5d295/notebook/tutorial-88bef20df39c460b9974d1ef6366f721)
-[![Linux CI](https://github.com/duburcqa/jiminy/actions/workflows/linux.yml/badge.svg?branch=master)](https://github.com/duburcqa/jiminy/actions/workflows/linux.yml)
-[![MacOS CI](https://github.com/duburcqa/jiminy/actions/workflows/macos.yml/badge.svg?branch=master)](https://github.com/duburcqa/jiminy/actions/workflows/macos.yml)
-[![Windows CI](https://github.com/duburcqa/jiminy/actions/workflows/win.yml/badge.svg?branch=master)](https://github.com/duburcqa/jiminy/actions/workflows/win.yml)
+[![Linux CI](https://github.com/Unity-Billal-mesloub/jiminy/actions/workflows/linux.yml/badge.svg?branch=master)](https://github.com/Unity-Billal-mesloub/jiminy/actions/workflows/linux.yml)
+[![MacOS CI](https://github.com/Unity-Billal-mesloub/jiminy/actions/workflows/macos.yml/badge.svg?branch=master)](https://github.com/Unity-Billal-mesloub/jiminy/actions/workflows/macos.yml)
+[![Windows CI](https://github.com/Unity-Billal-mesloub/jiminy/actions/workflows/win.yml/badge.svg?branch=master)](https://github.com/Unity-Billal-mesloub/jiminy/actions/workflows/win.yml)
 
 Jiminy is a cross-platform open-source simulator for poly-articulated systems. It was built with two ideas in mind:
 
 - **provide a fast yet physically accurate simulator for robotics research.**
 
-Jiminy is built around [Pinocchio](https://github.com/stack-of-tasks/pinocchio), an open-source fast and efficient kinematics and dynamics library. Jiminy thus uses minimal coordinates and Lagrangian dynamics to simulate an articulated system: this makes Jiminy as close as numerically possible to an analytical solution, without the risk of joint violation.
+Jiminy is built around [Pinocchio](https://github.com/Unity-Billal-mesloub/pinocchio), an open-source fast and efficient kinematics and dynamics library. Jiminy thus uses minimal coordinates and Lagrangian dynamics to simulate an articulated system: this makes Jiminy as close as numerically possible to an analytical solution, without the risk of joint violation.
 
 - **build an efficient and flexible platform for machine learning in robotics.**
 
@@ -32,11 +32,10 @@ Beside a strong focus on performance to answer machine learning's need for runni
 - Simulation of multi-body systems using **minimal coordinates and Lagrangian dynamics**.
 - Comprehensive API for computing dynamic quantities and their derivatives thanks to Pinocchio.
 - C++ core with full python bindings, providing user API parity between both languages.
-- Designed with machine learning in mind, with seamless wrapping of robots as [OpenAI Gym](https://github.com/openai/gym) environments using one-liners. Jiminy provides both the physical engine and the robot model (including sensors) required for learning.
+- Designed with machine learning in mind, with seamless wrapping of robots as [OpenAI Gym](https://github.com/Unity-Billal-mesloub/gym) environments using one-liners. Jiminy provides both the physical engine and the robot model (including sensors) required for learning.
 - **Fully modular learning environment pipeline design**, with plug-and-play robotic observers and controllers, but also composable reward components and termination conditions. See example [here](./python/gym_jiminy/unit_py/data/anymal_pipeline.toml).
 - Rich simulation log output, easily customizable for recording, introspection and debugging. The simulation log is made available in RAM directly for fast access, and can be exported in binary or [HDF5](./docs/spec/src/tlmc_format_specification.md) format.
-- Dedicated integration in Google Colab, Jupyter Lab, Mybinder and VSCode working out-of-the-box - including interactive 3D viewer based on [Meshcat](https://github.com/rdeits/MeshCat.jl). This facilitates working on remote environments.
-- Synchronous and single-threaded offscreen rendering capability, GPU-accelerated without graphical server, based on [Panda3d](https://github.com/panda3d/panda3d).
+- Synchronous and single-threaded offscreen rendering capability, GPU-accelerated without graphical server, based on [Panda3d](https://github.com/Unity-Billal-mesloub/panda3d).
 - Easy to install: `pip` is all that is needed to [get you started](#getting-started) ! Support Linux, Mac and Windows platforms.
 
 ### Physics
@@ -47,16 +46,16 @@ Beside a strong focus on performance to answer machine learning's need for runni
 - Modeling of motor transmission backlash and structural deformation via compliant spherical joints with spring-damper dynamics, which are common phenomena, particularly in bipedal robotics.
 - Simulate both continuous or discrete-time controller, with possibly different controller and sensor update frequencies.
 
-A more complete list of features is available on the [wiki](https://github.com/duburcqa/jiminy/wiki).
+A more complete list of features is available on the [wiki](https://github.com/Unity-Billal-mesloub/jiminy/wiki).
 
 **The documentation is available on [Github.io](https://duburcqa.github.io/jiminy/), or locally in `docs/html/index.html` if built from source.**
 
 ## Gym Jiminy
 
-Gym Jiminy is an interface between Jiminy simulator and reinforcement learning frameworks. It is fully compliant with now standard [Open AI Gym](https://github.com/openai/gym) API. Additionally, it offers a generic and easily configurable learning environment for learning locomotion tasks, with minimal intervention from the user, who usually only needs to provide the robot's [URDF](https://wiki.ros.org/urdf) file. Furthermore, Gym Jiminy enables easy modification of many aspects of the simulation to provide richer exploration and ensure robust learning. This ranges from external perturbation forces to sensor noise and bias, including randomization of masses and inertias, ground friction model or even gravity itself. Note that learning can
+Gym Jiminy is an interface between Jiminy simulator and reinforcement learning frameworks. It is fully compliant with now standard [Open AI Gym](https://github.com/Unity-Billal-mesloub/gym) API. Additionally, it offers a generic and easily configurable learning environment for learning locomotion tasks, with minimal intervention from the user, who usually only needs to provide the robot's [URDF](https://wiki.ros.org/urdf) file. Furthermore, Gym Jiminy enables easy modification of many aspects of the simulation to provide richer exploration and ensure robust learning. This ranges from external perturbation forces to sensor noise and bias, including randomization of masses and inertias, ground friction model or even gravity itself. Note that learning can
 easily be done on any high-level dynamics features, or restricted to mock sensor data for end-to-end learning.
 
-Gym is cross-platform and compatible with most Reinforcement Learning frameworks implementing standard algorithms. For instance, [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3), [Tianshou](https://github.com/thu-ml/tianshou), or [Rllib](https://github.com/ray-project/ray). Stable Baselines 3 and Tianshou use its counterpart [Pytorch](https://pytorch.org/), and Rllib supports both. A few learning examples relying on those packages are also provided.
+Gym is cross-platform and compatible with most Reinforcement Learning frameworks implementing standard algorithms. For instance, [Stable Baselines 3](https://github.com/Unity-Educational-Formation/stable-baselines3), [Tianshou](https://github.com/Unity-Educational-Formation/tianshou), or [Rllib](https://github.com/Unity-Billal-mesloub/ray). Stable Baselines 3 and Tianshou use its counterpart [Pytorch](https://pytorch.org/), and Rllib supports both. A few learning examples relying on those packages are also provided.
 
 Pre-configured environments for some well-known toys models and reference robotics platforms are provided: [cartpole](https://www.gymlibrary.dev/environments/classic_control/cart_pole/), [acrobot](https://www.gymlibrary.dev/environments/classic_control/acrobot/), [pendulum](https://www.gymlibrary.dev/environments/classic_control/pendulum/), [Ant](https://www.gymlibrary.dev/environments/mujoco/ant/), [ANYmal](https://www.anymal-research.org/#getting-started), and [Cassie](https://www.agilityrobotics.com/robots#cassie), and [Atlas](https://www.bostondynamics.com/atlas).
 
